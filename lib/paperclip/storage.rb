@@ -319,6 +319,10 @@ module Paperclip
         @container_name
       end
 
+      def fetch
+        cloudfiles_container.object(instance_read(:file_name)).data
+      end
+
       def parse_credentials creds
         creds = find_credentials(creds).stringify_keys
         creds = (creds[RAILS_ENV] || creds).symbolize_keys
