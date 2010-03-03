@@ -277,7 +277,8 @@ module Paperclip
     #   development versus production.
     # * +container+: This is the name of the Cloud Files container that will store your files. 
     #   This container should be marked "public" so that the files are available to the world at large.
-    #   If the container does not exist, it will be created and marked public.
+    #   If the container does not exist, it will be created and marked public unless :public is set to 
+    #   false.
     # * +path+: This is the path under the container in which the file will be stored. The
     #   CDN URL will be constructed from the CDN identifier for the container and the path. This is what 
     #   you will want to interpolate. Keys should be unique, like filenames, and despite the fact that
@@ -292,7 +293,7 @@ module Paperclip
           @cloudfiles_options     = @options[:cloudfiles_options]     || {}
           @@cdn_url ||= cloudfiles_container.cdn_url
           @path_filename            = ":cf_path_filename" unless @url.to_s.match(/^:cf.*filename$/)
-          @url = @@cdn_url + "/#{URI.encode(@path_filename).gsub(/&/,'%26')}"
+          @url = (@cloudfiles_credentials[:public] ? @@cdn_url + "/#{URI.encode(@path_filename).gsub(/&/,'%26')}" : nil)
           @path = (Paperclip::Attachment.default_options[:path] == @options[:path]) ? ":attachment/:id/:style/:basename.:extension" : @options[:path]
         end
           Paperclip.interpolates(:cf_path_filename) do |attachment, style|
@@ -309,7 +310,7 @@ module Paperclip
           @container
         else
           @container = cloudfiles.create_container(@container_name)
-          @container.make_public
+          @container.make_public if @cloudfiles_credentials[:public]
           @container
         end
       end
@@ -320,7 +321,11 @@ module Paperclip
 
       def parse_credentials creds
         creds = find_credentials(creds).stringify_keys
-        (creds[RAILS_ENV] || creds).symbolize_keys
+        creds = (creds[RAILS_ENV] || creds).symbolize_keys
+        if creds[:public].nil?
+          creds[:public] = true
+        end
+        return creds
       end
       
       def exists?(style = default_style)
